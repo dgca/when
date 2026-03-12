@@ -206,10 +206,17 @@ export function TimeSlotPicker({
           <Text size="xs" weight="semibold" color="foreground-muted">
             Selected times:
           </Text>
-          {existingRanges.map((range, i) => {
-            const color = getRangeColor(i);
+          {existingRanges
+            .map((range, i) => ({ range, originalIndex: i }))
+            .sort((a, b) => {
+              const aMin = a.range.startHour * 60 + a.range.startMinute;
+              const bMin = b.range.startHour * 60 + b.range.startMinute;
+              return aMin - bMin;
+            })
+            .map(({ range, originalIndex }) => {
+            const color = getRangeColor(originalIndex);
             return (
-              <HStack key={i} gap={2} align="center">
+              <HStack key={originalIndex} gap={2} align="center">
                 <span
                   style={{
                     width: 10,
@@ -228,7 +235,7 @@ export function TimeSlotPicker({
                   size="sm"
                   onClick={(e: React.MouseEvent) => {
                     e.stopPropagation();
-                    onRemoveRange(i);
+                    onRemoveRange(originalIndex);
                   }}
                   type="button"
                 >
