@@ -124,9 +124,9 @@ export function TimeSlotPicker({
         </Text>
       </Text>
 
-      <Box
-        style={{ position: "relative", userSelect: "none", cursor: "crosshair" }}
+      <div
         ref={containerRef}
+        style={{ position: "relative", userSelect: "none", cursor: "crosshair" }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -138,7 +138,7 @@ export function TimeSlotPicker({
           const isDragSelected = isDragging && i >= dragMin && i <= dragMax;
 
           return (
-            <Box
+            <div
               key={i}
               style={{
                 height: `${SLOT_HEIGHT}px`,
@@ -163,10 +163,10 @@ export function TimeSlotPicker({
                   {formatTime(hour, 0)}
                 </Text>
               )}
-            </Box>
+            </div>
           );
         })}
-      </Box>
+      </div>
 
       {existingRanges.length > 0 && (
         <VStack gap={1} mt={3}>
