@@ -20,6 +20,22 @@ interface TimeSlotPickerProps {
 const SLOT_HEIGHT = 20; // px per 30-min slot
 const SLOT_MINUTES = 30;
 
+// Palette of distinguishable colors for ranges
+const RANGE_COLORS = [
+  { bg: "rgba(59, 130, 246, 0.18)", border: "#3b82f6", dot: "#3b82f6" },   // blue
+  { bg: "rgba(168, 85, 247, 0.18)", border: "#a855f7", dot: "#a855f7" },   // purple
+  { bg: "rgba(34, 197, 94, 0.18)", border: "#22c55e", dot: "#22c55e" },    // green
+  { bg: "rgba(245, 158, 11, 0.18)", border: "#f59e0b", dot: "#f59e0b" },   // amber
+  { bg: "rgba(236, 72, 153, 0.18)", border: "#ec4899", dot: "#ec4899" },   // pink
+  { bg: "rgba(20, 184, 166, 0.18)", border: "#14b8a6", dot: "#14b8a6" },   // teal
+  { bg: "rgba(239, 68, 68, 0.18)", border: "#ef4444", dot: "#ef4444" },    // red
+  { bg: "rgba(99, 102, 241, 0.18)", border: "#6366f1", dot: "#6366f1" },   // indigo
+];
+
+function getRangeColor(index: number) {
+  return RANGE_COLORS[index % RANGE_COLORS.length];
+}
+
 function formatTime(hour: number, minute: number): string {
   const h = hour % 12 || 12;
   const ampm = hour < 12 ? "AM" : "PM";
@@ -80,7 +96,7 @@ export function TimeSlotPicker({
     setIsDragging(false);
 
     const startSlot = Math.min(dragStart, dragEnd);
-    const endSlot = Math.max(dragStart, dragEnd) + 1; // inclusive end
+    const endSlot = Math.max(dragStart, dragEnd) + 1;
 
     const start = slotToTime(startSlot, dayStart);
     const end = slotToTime(endSlot, dayStart);
@@ -92,7 +108,6 @@ export function TimeSlotPicker({
       endMinute: end.minute,
     };
 
-    // No-op if an identical range already exists
     const isDuplicate = existingRanges.some(
       (r) =>
         r.startHour === newRange.startHour &&
@@ -109,25 +124,23 @@ export function TimeSlotPicker({
     setDragEnd(null);
   };
 
-  // Compute which slots are covered by existing ranges
-  const coveredSlots = new Set<number>();
-  const rangeSlotMap: Map<number, number> = new Map(); // slot -> range index
+  // Map each slot to which range indices cover it (supports overlaps)
+  const slotRanges: Map<number, number[]> = new Map();
   existingRanges.forEach((range, rangeIdx) => {
     const start = timeToSlot(range.startHour, range.startMinute, dayStart);
     const end = timeToSlot(range.endHour, range.endMinute, dayStart);
     for (let s = start; s < end; s++) {
-      coveredSlots.add(s);
-      rangeSlotMap.set(s, rangeIdx);
+      const existing = slotRanges.get(s) || [];
+      existing.push(rangeIdx);
+      slotRanges.set(s, existing);
     }
   });
 
-  // Current drag selection
   const dragMin = dragStart !== null && dragEnd !== null ? Math.min(dragStart, dragEnd) : -1;
   const dragMax = dragStart !== null && dragEnd !== null ? Math.max(dragStart, dragEnd) : -1;
 
-
-  const hours: number[] = [];
-  for (let h = dayStart; h <= dayEnd; h++) hours.push(h);
+  // The next color that will be assigned to a new range
+  const nextColor = getRangeColor(existingRanges.length);
 
   return (
     <Box>
@@ -148,8 +161,18 @@ export function TimeSlotPicker({
         {Array.from({ length: totalSlots }, (_, i) => {
           const { hour, minute } = slotToTime(i, dayStart);
           const isHourBoundary = minute === 0;
-          const isSelected = coveredSlots.has(i);
           const isDragSelected = isDragging && i >= dragMin && i <= dragMax;
+          const rangeIndices = slotRanges.get(i);
+
+          // Build background: layer range colors, with drag on top
+          let background = "transparent";
+          if (rangeIndices && rangeIndices.length > 0) {
+            // Use the last range's color (topmost visually)
+            background = getRangeColor(rangeIndices[rangeIndices.length - 1]).bg;
+          }
+          if (isDragSelected) {
+            background = nextColor.bg;
+          }
 
           return (
             <div
@@ -157,11 +180,7 @@ export function TimeSlotPicker({
               style={{
                 height: `${SLOT_HEIGHT}px`,
                 borderTop: isHourBoundary ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
-                background: isDragSelected
-                  ? "rgba(59, 130, 246, 0.3)"
-                  : isSelected
-                    ? "rgba(34, 197, 94, 0.2)"
-                    : "transparent",
+                background,
                 display: "flex",
                 alignItems: "center",
                 paddingLeft: "4px",
@@ -187,25 +206,37 @@ export function TimeSlotPicker({
           <Text size="xs" weight="semibold" color="foreground-muted">
             Selected times:
           </Text>
-          {existingRanges.map((range, i) => (
-            <HStack key={i} gap={2} align="center">
-              <Text size="sm">
-                {formatTime(range.startHour, range.startMinute)} –{" "}
-                {formatTime(range.endHour, range.endMinute)}
-              </Text>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  onRemoveRange(i);
-                }}
-                type="button"
-              >
-                ✕
-              </Button>
-            </HStack>
-          ))}
+          {existingRanges.map((range, i) => {
+            const color = getRangeColor(i);
+            return (
+              <HStack key={i} gap={2} align="center">
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    background: color.dot,
+                    flexShrink: 0,
+                  }}
+                />
+                <Text size="sm">
+                  {formatTime(range.startHour, range.startMinute)} –{" "}
+                  {formatTime(range.endHour, range.endMinute)}
+                </Text>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    onRemoveRange(i);
+                  }}
+                  type="button"
+                >
+                  ✕
+                </Button>
+              </HStack>
+            );
+          })}
         </VStack>
       )}
     </Box>
