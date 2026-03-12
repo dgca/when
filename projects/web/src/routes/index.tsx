@@ -1,60 +1,134 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Box, Button, Input, Textarea, FormField, Heading, Text, VStack, HStack } from "@tosui/react";
+import {
+  Box,
+  Button,
+  Input,
+  Textarea,
+  FormField,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Badge,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@tosui/react";
 import { api } from "../api";
+import { DateCalendar } from "../components/DateCalendar";
+import { TimeSlotPicker } from "../components/TimeSlotPicker";
 
 export const Route = createFileRoute("/")({
   component: CreatePlanPage,
 });
+
+interface TimeOption {
+  date: string; // YYYY-MM-DD
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+function formatTime12(hour: number, minute: number): string {
+  const h = hour % 12 || 12;
+  const ampm = hour < 12 ? "AM" : "PM";
+  return minute === 0 ? `${h} ${ampm}` : `${h}:${minute.toString().padStart(2, "0")} ${ampm}`;
+}
+
+function formatDateNice(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
 
 function CreatePlanPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [timezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const [options, setOptions] = useState<
-    Array<{ date: string; startTime: string; endTime: string }>
-  >([{ date: "", startTime: "", endTime: "" }]);
+  const [options, setOptions] = useState<TimeOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const addOption = () => {
-    setOptions([...options, { date: "", startTime: "", endTime: "" }]);
+  // Modal state for day time picker
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [tempRanges, setTempRanges] = useState<
+    Array<{ startHour: number; startMinute: number; endHour: number; endMinute: number }>
+  >([]);
+
+  const handleDateClick = (date: string) => {
+    // Load existing ranges for this date
+    const existing = options
+      .filter((o) => o.date === date)
+      .map((o) => ({
+        startHour: o.startHour,
+        startMinute: o.startMinute,
+        endHour: o.endHour,
+        endMinute: o.endMinute,
+      }));
+    setTempRanges(existing);
+    setSelectedDate(date);
+  };
+
+  const handleSaveDay = () => {
+    if (!selectedDate) return;
+    // Remove old options for this date, add new ones
+    const otherOptions = options.filter((o) => o.date !== selectedDate);
+    const newOptions = tempRanges.map((r) => ({
+      date: selectedDate,
+      ...r,
+    }));
+    setOptions([...otherOptions, ...newOptions]);
+    setSelectedDate(null);
+  };
+
+  const handleClearDay = () => {
+    if (!selectedDate) return;
+    setOptions(options.filter((o) => o.date !== selectedDate));
+    setSelectedDate(null);
   };
 
   const removeOption = (index: number) => {
-    if (options.length <= 1) return;
     setOptions(options.filter((_, i) => i !== index));
   };
 
-  const updateOption = (index: number, field: string, value: string) => {
-    setOptions(options.map((opt, i) => (i === index ? { ...opt, [field]: value } : opt)));
-  };
+  // Get unique dates that have options selected
+  const selectedDates = [...new Set(options.map((o) => o.date))];
+
+  // Sort options by date then time
+  const sortedOptions = [...options].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.startHour * 60 + a.startMinute - (b.startHour * 60 + b.startMinute);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+
+    if (options.length === 0) {
+      setError("Add at least one time option");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const planOptions = options
-        .filter((opt) => opt.date && opt.startTime)
-        .map((opt) => {
-          const startsAt = new Date(`${opt.date}T${opt.startTime}`).toISOString();
-          const endsAt = opt.endTime
-            ? new Date(`${opt.date}T${opt.endTime}`).toISOString()
-            : undefined;
-          const label = opt.endTime
-            ? `${opt.date} ${opt.startTime}–${opt.endTime}`
-            : `${opt.date} ${opt.startTime}`;
-          return { label, startsAt, endsAt };
-        });
-
-      if (planOptions.length === 0) {
-        setError("Add at least one time option");
-        setSubmitting(false);
-        return;
-      }
+      const planOptions = sortedOptions.map((opt) => {
+        const startDate = `${opt.date}T${String(opt.startHour).padStart(2, "0")}:${String(opt.startMinute).padStart(2, "0")}:00`;
+        const endDate = `${opt.date}T${String(opt.endHour).padStart(2, "0")}:${String(opt.endMinute).padStart(2, "0")}:00`;
+        const startsAt = new Date(startDate).toISOString();
+        const endsAt = new Date(endDate).toISOString();
+        const label = `${formatDateNice(opt.date)} ${formatTime12(opt.startHour, opt.startMinute)}–${formatTime12(opt.endHour, opt.endMinute)}`;
+        return { label, startsAt, endsAt };
+      });
 
       const result = await api.createPlan({
         title,
@@ -112,66 +186,40 @@ function CreatePlanPage() {
 
           <Box w="100%">
             <Text weight="semibold" mb={2}>
-              Time options
+              Select dates, then pick time slots
             </Text>
-            <VStack gap={3}>
-              {options.map((opt, i) => (
-                <HStack key={i} gap={2} w="100%" align="end">
-                  <Box flex="1">
-                    <Text size="xs" color="foreground-muted" mb={1}>
-                      Date
+            <DateCalendar selectedDates={selectedDates} onClickDate={handleDateClick} />
+          </Box>
+
+          {/* Selected options summary */}
+          {sortedOptions.length > 0 && (
+            <Box w="100%">
+              <Text weight="semibold" size="sm" mb={2}>
+                Time options ({sortedOptions.length})
+              </Text>
+              <VStack gap={1}>
+                {sortedOptions.map((opt, i) => (
+                  <HStack key={i} gap={2} align="center">
+                    <Badge colorScheme="success" size="sm">
+                      {formatDateNice(opt.date)}
+                    </Badge>
+                    <Text size="sm">
+                      {formatTime12(opt.startHour, opt.startMinute)} –{" "}
+                      {formatTime12(opt.endHour, opt.endMinute)}
                     </Text>
-                    <Input
-                      type="date"
-                      value={opt.date}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        updateOption(i, "date", e.target.value)
-                      }
-                      required
-                    />
-                  </Box>
-                  <Box flex="1">
-                    <Text size="xs" color="foreground-muted" mb={1}>
-                      Start
-                    </Text>
-                    <Input
-                      type="time"
-                      value={opt.startTime}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        updateOption(i, "startTime", e.target.value)
-                      }
-                      required
-                    />
-                  </Box>
-                  <Box flex="1">
-                    <Text size="xs" color="foreground-muted" mb={1}>
-                      End
-                    </Text>
-                    <Input
-                      type="time"
-                      value={opt.endTime}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        updateOption(i, "endTime", e.target.value)
-                      }
-                    />
-                  </Box>
-                  {options.length > 1 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeOption(i)}
+                      onClick={() => removeOption(options.indexOf(opt))}
                       type="button"
                     >
                       ✕
                     </Button>
-                  )}
-                </HStack>
-              ))}
-            </VStack>
-            <Button variant="outline" size="sm" mt={2} onClick={addOption} type="button">
-              + Add option
-            </Button>
-          </Box>
+                  </HStack>
+                ))}
+              </VStack>
+            </Box>
+          )}
 
           {error && (
             <Text color="error" size="sm">
@@ -184,6 +232,44 @@ function CreatePlanPage() {
           </Button>
         </VStack>
       </form>
+
+      {/* Day time picker modal */}
+      <Modal
+        isOpen={selectedDate !== null}
+        onClose={() => setSelectedDate(null)}
+        size="md"
+      >
+        <ModalHeader>
+          <Heading as="h3" size="lg">
+            {selectedDate ? formatDateNice(selectedDate) : ""}
+          </Heading>
+        </ModalHeader>
+        <ModalBody>
+          {selectedDate && (
+            <TimeSlotPicker
+              date={selectedDate}
+              existingRanges={tempRanges}
+              onAddRange={(range) => setTempRanges([...tempRanges, range])}
+              onRemoveRange={(i) => setTempRanges(tempRanges.filter((_, idx) => idx !== i))}
+            />
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <HStack gap={2} justify="end">
+            {tempRanges.length > 0 && options.some((o) => o.date === selectedDate) && (
+              <Button variant="ghost" size="sm" colorScheme="error" onClick={handleClearDay}>
+                Clear day
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setSelectedDate(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveDay} disabled={tempRanges.length === 0}>
+              Save times
+            </Button>
+          </HStack>
+        </ModalFooter>
+      </Modal>
     </Box>
   );
 }

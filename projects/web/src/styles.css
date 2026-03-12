@@ -13,3 +13,18 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Schedule-X calendar sizing */
+.sx-date-calendar .sx-react-calendar-wrapper {
+  width: 100%;
+  height: 380px;
+}
+
+/* Make the month grid cells clickable-looking */
+.sx-date-calendar .sx__month-grid-day {
+  cursor: pointer;
+}
+
+.sx-date-calendar .sx__month-grid-day:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
