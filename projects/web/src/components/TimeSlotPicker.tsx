@@ -63,8 +63,6 @@ export function TimeSlotPicker({
   const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     const slot = getSlotFromY(e.clientY);
-    // Don't start a drag on an already-selected slot
-    if (coveredSlots.has(slot)) return;
     setDragStart(slot);
     setDragEnd(slot);
     setIsDragging(true);
@@ -84,25 +82,27 @@ export function TimeSlotPicker({
     const startSlot = Math.min(dragStart, dragEnd);
     const endSlot = Math.max(dragStart, dragEnd) + 1; // inclusive end
 
-    // Reject if any slot in the range overlaps an existing selection
-    let hasOverlap = false;
-    for (let s = startSlot; s < endSlot; s++) {
-      if (coveredSlots.has(s)) {
-        hasOverlap = true;
-        break;
-      }
-    }
+    const start = slotToTime(startSlot, dayStart);
+    const end = slotToTime(endSlot, dayStart);
 
-    if (!hasOverlap) {
-      const start = slotToTime(startSlot, dayStart);
-      const end = slotToTime(endSlot, dayStart);
+    const newRange = {
+      startHour: start.hour,
+      startMinute: start.minute,
+      endHour: end.hour,
+      endMinute: end.minute,
+    };
 
-      onAddRange({
-        startHour: start.hour,
-        startMinute: start.minute,
-        endHour: end.hour,
-        endMinute: end.minute,
-      });
+    // No-op if an identical range already exists
+    const isDuplicate = existingRanges.some(
+      (r) =>
+        r.startHour === newRange.startHour &&
+        r.startMinute === newRange.startMinute &&
+        r.endHour === newRange.endHour &&
+        r.endMinute === newRange.endMinute,
+    );
+
+    if (!isDuplicate) {
+      onAddRange(newRange);
     }
 
     setDragStart(null);
@@ -125,16 +125,6 @@ export function TimeSlotPicker({
   const dragMin = dragStart !== null && dragEnd !== null ? Math.min(dragStart, dragEnd) : -1;
   const dragMax = dragStart !== null && dragEnd !== null ? Math.max(dragStart, dragEnd) : -1;
 
-  // Check if current drag overlaps existing selections
-  let dragHasOverlap = false;
-  if (isDragging) {
-    for (let s = dragMin; s <= dragMax; s++) {
-      if (coveredSlots.has(s)) {
-        dragHasOverlap = true;
-        break;
-      }
-    }
-  }
 
   const hours: number[] = [];
   for (let h = dayStart; h <= dayEnd; h++) hours.push(h);
@@ -168,9 +158,7 @@ export function TimeSlotPicker({
                 height: `${SLOT_HEIGHT}px`,
                 borderTop: isHourBoundary ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
                 background: isDragSelected
-                  ? dragHasOverlap
-                    ? "rgba(239, 68, 68, 0.2)"
-                    : "rgba(59, 130, 246, 0.3)"
+                  ? "rgba(59, 130, 246, 0.3)"
                   : isSelected
                     ? "rgba(34, 197, 94, 0.2)"
                     : "transparent",
