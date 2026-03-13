@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Box, Text, Button, HStack, VStack } from "@tosui/react";
 
 interface TimeRange {
@@ -13,8 +13,9 @@ interface TimeSlotPickerProps {
   existingRanges: TimeRange[];
   onAddRange: (range: TimeRange) => void;
   onRemoveRange: (index: number) => void;
-  dayStart?: number; // hour (default 8)
-  dayEnd?: number; // hour (default 22)
+  dayStart?: number; // hour (default 0)
+  dayEnd?: number; // hour (default 24)
+  scrollToHour?: number; // auto-scroll to this hour on mount (default 8)
 }
 
 const SLOT_HEIGHT = 20; // px per 30-min slot
@@ -56,11 +57,21 @@ export function TimeSlotPicker({
   existingRanges,
   onAddRange,
   onRemoveRange,
-  dayStart = 8,
-  dayEnd = 22,
+  dayStart = 0,
+  dayEnd = 24,
+  scrollToHour = 8,
 }: TimeSlotPickerProps) {
   const totalSlots = ((dayEnd - dayStart) * 60) / SLOT_MINUTES;
+  const scrollRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to scrollToHour on mount
+  useEffect(() => {
+    if (scrollRef.current) {
+      const scrollSlot = ((scrollToHour - dayStart) * 60) / SLOT_MINUTES;
+      scrollRef.current.scrollTop = scrollSlot * SLOT_HEIGHT;
+    }
+  }, [scrollToHour, dayStart]);
   const [dragStart, setDragStart] = useState<number | null>(null);
   const [dragEnd, setDragEnd] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -152,6 +163,10 @@ export function TimeSlotPicker({
       </Text>
 
       <div
+        ref={scrollRef}
+        style={{ maxHeight: "560px", overflowY: "auto" }}
+      >
+      <div
         ref={containerRef}
         style={{ position: "relative", userSelect: "none", cursor: "crosshair" }}
         onPointerDown={handlePointerDown}
@@ -164,14 +179,16 @@ export function TimeSlotPicker({
           const isDragSelected = isDragging && i >= dragMin && i <= dragMax;
           const rangeIndices = slotRanges.get(i);
 
-          // Build background: layer range colors, with drag on top
-          let background = "transparent";
-          if (rangeIndices && rangeIndices.length > 0) {
-            // Use the last range's color (topmost visually)
-            background = getRangeColor(rangeIndices[rangeIndices.length - 1]).bg;
+          // Collect all strips for this slot (existing ranges + drag)
+          const strips: { color: string; border: string }[] = [];
+          if (rangeIndices) {
+            for (const idx of rangeIndices) {
+              const c = getRangeColor(idx);
+              strips.push({ color: c.bg, border: c.border });
+            }
           }
           if (isDragSelected) {
-            background = nextColor.bg;
+            strips.push({ color: nextColor.bg, border: nextColor.border });
           }
 
           return (
@@ -180,13 +197,27 @@ export function TimeSlotPicker({
               style={{
                 height: `${SLOT_HEIGHT}px`,
                 borderTop: isHourBoundary ? "1px solid #e2e8f0" : "1px solid #f1f5f9",
-                background,
+                background: strips.length > 0 ? strips[strips.length - 1].color : "transparent",
                 display: "flex",
                 alignItems: "center",
-                paddingLeft: "4px",
+                paddingLeft: strips.length > 0 ? `${strips.length * 4 + 4}px` : "4px",
                 transition: "background 0.05s",
+                position: "relative",
               }}
             >
+              {strips.map((strip, si) => (
+                <div
+                  key={si}
+                  style={{
+                    position: "absolute",
+                    left: si * 4,
+                    top: 0,
+                    bottom: 0,
+                    width: 4,
+                    background: strip.border,
+                  }}
+                />
+              ))}
               {isHourBoundary && (
                 <Text
                   size="xs"
@@ -199,6 +230,7 @@ export function TimeSlotPicker({
             </div>
           );
         })}
+      </div>
       </div>
 
       {existingRanges.length > 0 && (
