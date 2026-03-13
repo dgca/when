@@ -55,3 +55,20 @@ sqlite.exec(`
     value TEXT NOT NULL
   );
 `);
+
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS availability_slots (
+    id TEXT PRIMARY KEY,
+    response_id TEXT NOT NULL REFERENCES responses(id),
+    date TEXT NOT NULL,
+    start_hour INTEGER NOT NULL,
+    start_minute INTEGER NOT NULL,
+    end_hour INTEGER NOT NULL,
+    end_minute INTEGER NOT NULL
+  );
+`);
+
+// Add new columns to plans (idempotent — ignore if already exist)
+try { sqlite.exec(`ALTER TABLE plans ADD COLUMN mode TEXT NOT NULL DEFAULT 'poll'`); } catch {}
+try { sqlite.exec(`ALTER TABLE plans ADD COLUMN date_range_start TEXT`); } catch {}
+try { sqlite.exec(`ALTER TABLE plans ADD COLUMN date_range_end TEXT`); } catch {}

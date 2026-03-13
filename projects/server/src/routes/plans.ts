@@ -16,7 +16,7 @@ planRoutes.post("/", async (c) => {
     return c.json({ error: parsed.error.flatten() }, 400);
   }
 
-  const { title, description, timezone, options: optionInputs } = parsed.data;
+  const { title, description, timezone, mode } = parsed.data;
   const planId = nanoid(12);
   const adminToken = crypto.randomBytes(32).toString("hex");
   const now = new Date().toISOString();
@@ -27,22 +27,27 @@ planRoutes.post("/", async (c) => {
     title,
     description: description || null,
     timezone,
+    mode,
+    dateRangeStart: parsed.data.mode === "availability" ? (parsed.data.dateRangeStart || null) : null,
+    dateRangeEnd: parsed.data.mode === "availability" ? (parsed.data.dateRangeEnd || null) : null,
     status: "open",
     createdAt: now,
     updatedAt: now,
   });
 
-  const optionRows = optionInputs.map((opt, i) => ({
-    id: nanoid(12),
-    planId,
-    label: opt.label,
-    startsAt: opt.startsAt,
-    endsAt: opt.endsAt || null,
-    sortOrder: i,
-  }));
+  if (parsed.data.mode === "poll") {
+    const optionRows = parsed.data.options.map((opt, i) => ({
+      id: nanoid(12),
+      planId,
+      label: opt.label,
+      startsAt: opt.startsAt,
+      endsAt: opt.endsAt || null,
+      sortOrder: i,
+    }));
 
-  if (optionRows.length > 0) {
-    await db.insert(options).values(optionRows);
+    if (optionRows.length > 0) {
+      await db.insert(options).values(optionRows);
+    }
   }
 
   return c.json(
@@ -77,6 +82,9 @@ planRoutes.get("/:planId", async (c) => {
     title: plan.title,
     description: plan.description,
     timezone: plan.timezone,
+    mode: plan.mode,
+    dateRangeStart: plan.dateRangeStart,
+    dateRangeEnd: plan.dateRangeEnd,
     status: plan.status,
     options: planOptions.map((o) => ({
       id: o.id,
