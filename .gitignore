@@ -8,3 +8,4 @@ dist/
 *.db-shm
 .DS_Store
 projects/server/data/
+.playwright-cli/
