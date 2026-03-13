@@ -7,6 +7,8 @@ import type {
   UpdateResponseInput,
   PlanResults,
   UpdatePlanInput,
+  CreateAvailabilityResponseInput,
+  UpdateAvailabilityResponseInput,
 } from "@when/shared";
 
 const BASE = "/api";
@@ -58,6 +60,29 @@ export const api = {
     planId: string,
     responseId: string,
     data: UpdateResponseInput,
+    editToken: string,
+  ): Promise<{ ok: true }> {
+    return request(`/plans/${planId}/responses/${responseId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+      headers: { "x-edit-token": editToken },
+    });
+  },
+
+  submitAvailabilityResponse(
+    planId: string,
+    data: CreateAvailabilityResponseInput,
+  ): Promise<ParticipantResponse> {
+    return request(`/plans/${planId}/responses`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateAvailabilityResponse(
+    planId: string,
+    responseId: string,
+    data: UpdateAvailabilityResponseInput,
     editToken: string,
   ): Promise<{ ok: true }> {
     return request(`/plans/${planId}/responses/${responseId}`, {
