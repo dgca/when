@@ -16,6 +16,10 @@ import {
 } from "@tosui/react";
 import { api } from "../api";
 import { ResultsTable } from "../components/ResultsTable";
+import { DateCalendar } from "../components/DateCalendar";
+import { AvailabilityView } from "../components/AvailabilityView";
+import { BestTimesList } from "../components/BestTimesList";
+import { Modal, ModalHeader, ModalBody } from "@tosui/react";
 
 export const Route = createFileRoute("/a/$planId")({
   component: AdminPage,
@@ -35,6 +39,7 @@ function AdminPage() {
     refetchInterval: 15_000,
   });
 
+  const [viewingDate, setViewingDate] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -85,12 +90,18 @@ function AdminPage() {
 
   const { plan } = results;
 
+  const allAvailDates = plan.mode === "availability"
+    ? [...new Set(results.responses.flatMap((r) => (r.availabilitySlots || []).map((s) => s.date)))]
+    : [];
+
   return (
     <VStack gap={5}>
       <Box>
-        <Badge colorScheme="primary" mb={2}>
-          Admin view
-        </Badge>
+        <Box mb={2}>
+          <Badge colorScheme="primary">
+            Admin view
+          </Badge>
+        </Box>
 
         {editing ? (
           <VStack gap={3}>
@@ -168,7 +179,56 @@ function AdminPage() {
         )}
       </HStack>
 
-      <ResultsTable results={results} />
+      {plan.mode === "availability" ? (
+        <>
+          <Box w="100%">
+            <Heading as="h3" size="lg" mb={3}>
+              Best times
+            </Heading>
+            <BestTimesList
+              bestTimes={results.bestTimes || []}
+              totalParticipants={results.responses.length}
+            />
+          </Box>
+
+          {results.responses.length > 0 && (
+            <Box w="100%">
+              <Heading as="h3" size="lg" mb={3}>
+                Everyone's availability
+              </Heading>
+              <Text size="sm" color="foreground-muted" mb={2}>
+                Click a date to see details
+              </Text>
+              <DateCalendar
+                selectedDates={allAvailDates}
+                onClickDate={(date) => setViewingDate(date)}
+              />
+            </Box>
+          )}
+
+          <Modal isOpen={viewingDate !== null} onClose={() => setViewingDate(null)} size="md">
+            <ModalHeader>
+              <Heading as="h3" size="lg">
+                {viewingDate ? new Date(viewingDate + "T00:00").toLocaleDateString("en-US", {
+                  weekday: "short", month: "short", day: "numeric"
+                }) : ""}
+              </Heading>
+            </ModalHeader>
+            <ModalBody>
+              {viewingDate && (
+                <AvailabilityView
+                  date={viewingDate}
+                  participants={results.responses
+                    .filter((r) => r.availabilitySlots?.some((s) => s.date === viewingDate))
+                    .map((r) => ({ name: r.participantName, slots: r.availabilitySlots || [] }))}
+                />
+              )}
+            </ModalBody>
+          </Modal>
+        </>
+      ) : (
+        <ResultsTable results={results} />
+      )}
 
       <Box w="100%" p={3} bg="surface" rounded="md">
         <Text size="xs" color="foreground-muted">
