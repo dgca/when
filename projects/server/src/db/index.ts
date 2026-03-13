@@ -1,30 +1,35 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema.js";
-import { join, dirname } from "path";
+import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { mkdirSync } from "fs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DATABASE_URL || join(__dirname, "../../data/when.db");
+let url = process.env.TURSO_DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-// Ensure the data directory exists
-mkdirSync(dirname(dbPath), { recursive: true });
+if (!url) {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const dbPath = join(__dirname, "../../data/when.db");
+  mkdirSync(dirname(dbPath), { recursive: true });
+  url = `file:${dbPath}`;
+}
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+const client = createClient({ url, authToken });
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
 
 // Auto-create tables
-sqlite.exec(`
+await client.executeMultiple(`
   CREATE TABLE IF NOT EXISTS plans (
     id TEXT PRIMARY KEY,
     admin_token TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
     timezone TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'poll',
+    date_range_start TEXT,
+    date_range_end TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -54,9 +59,7 @@ sqlite.exec(`
     option_id TEXT NOT NULL REFERENCES options(id),
     value TEXT NOT NULL
   );
-`);
 
-sqlite.exec(`
   CREATE TABLE IF NOT EXISTS availability_slots (
     id TEXT PRIMARY KEY,
     response_id TEXT NOT NULL REFERENCES responses(id),
@@ -67,8 +70,3 @@ sqlite.exec(`
     end_minute INTEGER NOT NULL
   );
 `);
-
-// Add new columns to plans (idempotent — ignore if already exist)
-try { sqlite.exec(`ALTER TABLE plans ADD COLUMN mode TEXT NOT NULL DEFAULT 'poll'`); } catch {}
-try { sqlite.exec(`ALTER TABLE plans ADD COLUMN date_range_start TEXT`); } catch {}
-try { sqlite.exec(`ALTER TABLE plans ADD COLUMN date_range_end TEXT`); } catch {}

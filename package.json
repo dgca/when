@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "pnpm --filter @when/server dev & pnpm --filter @when/web dev & wait",
     "build": "pnpm --filter @when/shared build && pnpm --filter @when/server build && pnpm --filter @when/web build",
+    "start": "node projects/server/dist/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest"
@@ -18,7 +19,6 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
       "esbuild"
     ]
   }
