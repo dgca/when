@@ -102,7 +102,7 @@ function PlanPage() {
   const [copiedShare, setCopiedShare] = useState(false);
   const [copiedAdmin, setCopiedAdmin] = useState(false);
 
-  // Load existing response data
+  // Load existing response data, or pre-fill name from creatorName for admins
   useEffect(() => {
     if (results && existingResponseId) {
       const existing = results.responses.find((r) => r.id === existingResponseId);
@@ -118,8 +118,10 @@ function PlanPage() {
           setSelections(sels);
         }
       }
+    } else if (results && !existingResponseId && isAdmin && results.plan.creatorName && results.plan.creatorName !== "n/a") {
+      setName(results.plan.creatorName);
     }
-  }, [results, existingResponseId]);
+  }, [results, existingResponseId, isAdmin]);
 
   // Admin mutations
   const updateMutation = useMutation({
@@ -326,6 +328,11 @@ function PlanPage() {
             {plan.description && (
               <Text color="foreground-muted" mb={2}>
                 {plan.description}
+              </Text>
+            )}
+            {plan.creatorName && plan.creatorName !== "n/a" && (
+              <Text size="sm" color="foreground-muted" mb={1}>
+                Created by {plan.creatorName}
               </Text>
             )}
             <Text size="xs" color="foreground-muted">

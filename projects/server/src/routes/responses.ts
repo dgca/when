@@ -234,6 +234,7 @@ responseRoutes.get("/:planId/results", async (c) => {
       plan: {
         id: plan.id,
         title: plan.title,
+        creatorName: plan.creatorName,
         description: plan.description,
         timezone: plan.timezone,
         status: plan.status,
@@ -301,6 +302,7 @@ responseRoutes.get("/:planId/results", async (c) => {
     plan: {
       id: plan.id,
       title: plan.title,
+      creatorName: plan.creatorName,
       description: plan.description,
       timezone: plan.timezone,
       status: plan.status,
