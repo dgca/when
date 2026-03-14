@@ -682,7 +682,7 @@ function PlanPage() {
                 Cancel
               </Button>
               <Button
-                colorScheme="error"
+                colorScheme={chosenOptionId ? "primary" : "info"}
                 onClick={() => closeMutation.mutate(chosenOptionId || undefined)}
                 loading={closeMutation.isPending}
               >
