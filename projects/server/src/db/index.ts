@@ -24,6 +24,7 @@ await client.executeMultiple(`
   CREATE TABLE IF NOT EXISTS plans (
     id TEXT PRIMARY KEY,
     admin_token TEXT NOT NULL,
+    creator_name TEXT NOT NULL DEFAULT 'n/a',
     title TEXT NOT NULL,
     description TEXT,
     timezone TEXT NOT NULL,
@@ -70,3 +71,10 @@ await client.executeMultiple(`
     end_minute INTEGER NOT NULL
   );
 `);
+
+// Migrations
+try {
+  await client.execute(`ALTER TABLE plans ADD COLUMN creator_name TEXT NOT NULL DEFAULT 'n/a'`);
+} catch {
+  // Column already exists
+}

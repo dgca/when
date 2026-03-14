@@ -49,6 +49,7 @@ function formatDateNice(dateStr: string): string {
 function CreatePlanPage() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
+  const [creatorName, setCreatorName] = useState("");
   const [description, setDescription] = useState("");
   const [timezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [options, setOptions] = useState<TimeOption[]>([]);
@@ -118,6 +119,11 @@ function CreatePlanPage() {
       return;
     }
 
+    if (!creatorName.trim()) {
+      setError("Your name is required");
+      return;
+    }
+
     if (mode === "poll" && options.length === 0) {
       setError("Add at least one time option");
       return;
@@ -141,6 +147,7 @@ function CreatePlanPage() {
         result = await api.createPlan({
           mode: "poll",
           title,
+          creatorName,
           description: description || undefined,
           timezone,
           options: planOptions,
@@ -149,6 +156,7 @@ function CreatePlanPage() {
         result = await api.createPlan({
           mode: "availability",
           title,
+          creatorName,
           description: description || undefined,
           timezone,
           dateRangeStart: dateRangeStart || undefined,
@@ -199,6 +207,15 @@ function CreatePlanPage() {
               placeholder="Dinner this weekend?"
               value={title}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+              required
+            />
+          </FormField>
+
+          <FormField label="Your name">
+            <Input
+              placeholder="Enter your name"
+              value={creatorName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreatorName(e.target.value)}
               required
             />
           </FormField>

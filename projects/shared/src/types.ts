@@ -30,6 +30,7 @@ export type UpdateAvailabilityResponseInput = z.infer<typeof updateAvailabilityR
 export interface PlanSummary {
   id: string;
   title: string;
+  creatorName: string;
   description: string | null;
   timezone: string;
   status: PlanStatus;

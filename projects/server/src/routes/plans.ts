@@ -16,7 +16,7 @@ planRoutes.post("/", async (c) => {
     return c.json({ error: parsed.error.flatten() }, 400);
   }
 
-  const { title, description, timezone, mode } = parsed.data;
+  const { title, creatorName, description, timezone, mode } = parsed.data;
   const planId = nanoid(12);
   const adminToken = crypto.randomBytes(32).toString("hex");
   const now = new Date().toISOString();
@@ -24,6 +24,7 @@ planRoutes.post("/", async (c) => {
   await db.insert(plans).values({
     id: planId,
     adminToken,
+    creatorName,
     title,
     description: description || null,
     timezone,
@@ -80,6 +81,7 @@ planRoutes.get("/:planId", async (c) => {
   return c.json({
     id: plan.id,
     title: plan.title,
+    creatorName: plan.creatorName,
     description: plan.description,
     timezone: plan.timezone,
     mode: plan.mode,
