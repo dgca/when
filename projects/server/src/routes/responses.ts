@@ -241,6 +241,7 @@ responseRoutes.get("/:planId/results", async (c) => {
         mode: plan.mode,
         dateRangeStart: plan.dateRangeStart,
         dateRangeEnd: plan.dateRangeEnd,
+        chosenOptionId: plan.chosenOptionId,
         options: [],
         createdAt: plan.createdAt,
         updatedAt: plan.updatedAt,
@@ -309,6 +310,7 @@ responseRoutes.get("/:planId/results", async (c) => {
       mode: plan.mode,
       dateRangeStart: plan.dateRangeStart,
       dateRangeEnd: plan.dateRangeEnd,
+      chosenOptionId: plan.chosenOptionId,
       options: planOptions.map((o) => ({
         id: o.id,
         label: o.label,

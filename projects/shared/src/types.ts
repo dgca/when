@@ -37,6 +37,7 @@ export interface PlanSummary {
   mode: PlanMode;
   dateRangeStart?: string | null;
   dateRangeEnd?: string | null;
+  chosenOptionId?: string | null;
   options: OptionWithId[];
   createdAt: string;
   updatedAt: string;

@@ -101,6 +101,8 @@ function PlanPage() {
   const [editDescription, setEditDescription] = useState("");
   const [copiedShare, setCopiedShare] = useState(false);
   const [copiedAdmin, setCopiedAdmin] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [chosenOptionId, setChosenOptionId] = useState<string | null>(null);
 
   // Load existing response data, or pre-fill name from creatorName for admins
   useEffect(() => {
@@ -138,8 +140,9 @@ function PlanPage() {
   });
 
   const closeMutation = useMutation({
-    mutationFn: () => api.closePlan(planId, adminToken!),
+    mutationFn: (optionId?: string) => api.closePlan(planId, adminToken!, optionId),
     onSuccess: () => {
+      setShowCloseModal(false);
       queryClient.invalidateQueries({ queryKey: ["results", planId] });
     },
   });
@@ -361,11 +364,9 @@ function PlanPage() {
                 variant="outline"
                 colorScheme="error"
                 onClick={() => {
-                  if (confirm("Close this plan? Participants won't be able to respond.")) {
-                    closeMutation.mutate();
-                  }
+                  setChosenOptionId(null);
+                  setShowCloseModal(true);
                 }}
-                loading={closeMutation.isPending}
               >
                 Close plan
               </Button>
@@ -373,6 +374,21 @@ function PlanPage() {
           </HStack>
         </Box>
       )}
+
+      {/* Chosen time banner */}
+      {plan.status === "closed" && plan.chosenOptionId && (() => {
+        const chosenOpt = plan.options.find((o) => o.id === plan.chosenOptionId);
+        return chosenOpt ? (
+          <Box w="100%" p={4} bg="success-subtle" rounded="md">
+            <Text size="xs" weight="semibold" color="success" mb={1}>
+              Final time
+            </Text>
+            <Text size="lg" weight="bold">
+              {chosenOpt.label}
+            </Text>
+          </Box>
+        ) : null;
+      })()}
 
       {/* Results + response form */}
       {plan.mode === "availability" ? (
@@ -545,27 +561,38 @@ function PlanPage() {
                     {plan.options.map((opt) => {
                       const sel = selections[opt.id];
                       return (
-                        <Button
+                        <HStack
                           key={opt.id}
-                          variant={sel === "yes" ? "solid" : sel === "maybe" ? "outline" : "ghost"}
-                          colorScheme={
-                            sel === "yes" ? "success" : sel === "maybe" ? "warning" : undefined
-                          }
-                          fullWidth
-                          onClick={() => toggleSelection(opt.id)}
+                          as="button"
                           type="button"
+                          gap={2}
+                          w="100%"
+                          justify="space-between"
+                          align="center"
+                          p={3}
+                          rounded="md"
+                          onClick={() => toggleSelection(opt.id)}
+                          style={{
+                            cursor: "pointer",
+                            border: sel === "maybe"
+                              ? "1px solid var(--colors-warning, #f59e0b)"
+                              : "1px solid var(--colors-border, #e2e8f0)",
+                            background: sel === "yes"
+                              ? "var(--colors-success-subtle, #dcfce7)"
+                              : sel === "maybe"
+                                ? "var(--colors-warning-subtle, #fef9c3)"
+                                : "transparent",
+                          }}
                         >
-                          <HStack gap={2} w="100%" justify="space-between">
-                            <Text size="sm">{opt.label}</Text>
-                            <Badge
-                              colorScheme={
-                                sel === "yes" ? "success" : sel === "maybe" ? "warning" : "gray"
-                              }
-                            >
-                              {sel === "yes" ? "Yes" : sel === "maybe" ? "Maybe" : "—"}
-                            </Badge>
-                          </HStack>
-                        </Button>
+                          <Text size="sm">{opt.label}</Text>
+                          <Badge
+                            colorScheme={
+                              sel === "yes" ? "success" : sel === "maybe" ? "warning" : "gray"
+                            }
+                          >
+                            {sel === "yes" ? "Yes" : sel === "maybe" ? "Maybe" : "—"}
+                          </Badge>
+                        </HStack>
                       );
                     })}
                   </VStack>
@@ -595,6 +622,75 @@ function PlanPage() {
             </Box>
           )}
         </>
+      )}
+      {/* Close plan modal */}
+      {isAdmin && plan.mode === "poll" && (
+        <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} size="md">
+          <ModalHeader>
+            <Heading as="h3" size="lg">
+              Close plan
+            </Heading>
+          </ModalHeader>
+          <ModalBody>
+            <Text color="foreground-muted" mb={3}>
+              Pick the winning time, or close without choosing.
+            </Text>
+            <VStack gap={2}>
+              {results.optionSummary.map((summary) => {
+                const opt = plan.options.find((o) => o.id === summary.optionId);
+                if (!opt) return null;
+                const isSelected = chosenOptionId === opt.id;
+                return (
+                  <HStack
+                    key={opt.id}
+                    as="button"
+                    type="button"
+                    gap={2}
+                    w="100%"
+                    justify="space-between"
+                    align="center"
+                    p={3}
+                    rounded="md"
+                    onClick={() => setChosenOptionId(isSelected ? null : opt.id)}
+                    style={{
+                      cursor: "pointer",
+                      border: isSelected
+                        ? "2px solid var(--colors-success, #16a34a)"
+                        : "1px solid var(--colors-border, #e2e8f0)",
+                      background: isSelected
+                        ? "var(--colors-success-subtle, #dcfce7)"
+                        : "transparent",
+                    }}
+                  >
+                    <Text size="sm">{opt.label}</Text>
+                    <HStack gap={1}>
+                      {summary.yesCount > 0 && (
+                        <Badge colorScheme="success" size="sm">{summary.yesCount}</Badge>
+                      )}
+                      {summary.maybeCount > 0 && (
+                        <Badge colorScheme="warning" size="sm">{summary.maybeCount}?</Badge>
+                      )}
+                    </HStack>
+                  </HStack>
+                );
+              })}
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack gap={2} justify="end">
+              <Button variant="ghost" onClick={() => setShowCloseModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="error"
+                onClick={() => closeMutation.mutate(chosenOptionId || undefined)}
+                loading={closeMutation.isPending}
+              >
+                {chosenOptionId ? "Close with winner" : "Close without winner"}
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </Modal>
       )}
     </VStack>
   );
