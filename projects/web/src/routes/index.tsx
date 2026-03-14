@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { trackPlanCreated } from "../planStore";
 import {
   Box,
   Button,
@@ -155,10 +156,10 @@ function CreatePlanPage() {
         });
       }
 
-      localStorage.setItem(`when-admin-${result.id}`, result.adminToken);
+      trackPlanCreated(result.id, title, result.adminToken);
 
       navigate({
-        to: "/a/$planId",
+        to: "/p/$planId",
         params: { planId: result.id },
         search: { token: result.adminToken },
       });

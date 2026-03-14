@@ -31,3 +31,11 @@ Open http://localhost:5173
 The server runs on port 3456 and the web client on port 5173. Vite proxies `/api` requests to the server.
 
 Local SQLite database is auto-created at `projects/server/data/when.db`.
+
+## Deployment
+
+Hosted on [Railway](https://railway.com) with [Turso](https://turso.tech) as the database.
+
+- **URL**: https://when.typeof.cool
+- Pushes to `main` auto-deploy via Railway's GitHub integration
+- Env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`) are configured in Railway
