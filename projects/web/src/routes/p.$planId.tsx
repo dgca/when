@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import React from "react";
-import { trackPlanJoined } from "../planStore";
+import { trackPlanJoined, getEntry } from "../planStore";
 import {
   Box,
   Button,
@@ -45,15 +45,10 @@ function ParticipantPage() {
   const [existingResponseId, setExistingResponseId] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(`when-edit-${planId}`);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setEditToken(parsed.editToken);
-        setExistingResponseId(parsed.responseId);
-      } catch {
-        // ignore
-      }
+    const entry = getEntry(planId);
+    if (entry?.editToken && entry?.responseId) {
+      setEditToken(entry.editToken);
+      setExistingResponseId(entry.responseId);
     }
   }, [planId]);
 
@@ -123,19 +118,15 @@ function ParticipantPage() {
             { participantName: name, availabilitySlots: availSlots },
             editToken,
           );
-          return { updated: true };
+          return { updated: true } as const;
         } else {
           const res = await api.submitAvailabilityResponse(planId, {
             participantName: name,
             availabilitySlots: availSlots,
           });
-          localStorage.setItem(
-            `when-edit-${planId}`,
-            JSON.stringify({ editToken: res.editToken, responseId: res.id }),
-          );
           setEditToken(res.editToken);
           setExistingResponseId(res.id);
-          return { updated: false };
+          return { updated: false, editToken: res.editToken, responseId: res.id };
         }
       }
 
@@ -151,25 +142,24 @@ function ParticipantPage() {
           { participantName: name, selections: selectionList },
           editToken,
         );
-        return { updated: true };
+        return { updated: true } as const;
       } else {
         const res = await api.submitResponse(planId, {
           participantName: name,
           selections: selectionList,
         });
-        localStorage.setItem(
-          `when-edit-${planId}`,
-          JSON.stringify({ editToken: res.editToken, responseId: res.id }),
-        );
         setEditToken(res.editToken);
         setExistingResponseId(res.id);
-        return { updated: false };
+        return { updated: false, editToken: res.editToken, responseId: res.id };
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setSubmitted(true);
-      if (results?.plan.title) {
-        trackPlanJoined(planId, results.plan.title);
+      if (results?.plan.title && data.editToken && data.responseId) {
+        trackPlanJoined(planId, results.plan.title, {
+          editToken: data.editToken,
+          responseId: data.responseId,
+        });
       }
       queryClient.invalidateQueries({ queryKey: ["results", planId] });
     },
