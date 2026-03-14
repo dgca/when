@@ -90,7 +90,7 @@ export function PlanDrawer({ isOpen, onClose }: PlanDrawerProps) {
               {created.map(([id, entry]) => (
                 <Link
                   key={id}
-                  to="/a/$planId"
+                  to="/p/$planId"
                   params={{ planId: id }}
                   search={{ token: entry.adminToken! }}
                   onClick={onClose}
@@ -126,6 +126,7 @@ export function PlanDrawer({ isOpen, onClose }: PlanDrawerProps) {
                   key={id}
                   to="/p/$planId"
                   params={{ planId: id }}
+                  search={{ token: undefined }}
                   onClick={onClose}
                   style={{ textDecoration: "none", display: "block", width: "100%" }}
                 >

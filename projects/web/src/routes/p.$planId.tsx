@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import React from "react";
-import { trackPlanJoined, getEntry } from "../planStore";
+import { trackPlanJoined, getEntry, trackPlanCreated } from "../planStore";
 import {
   Box,
   Button,
   Input,
+  Textarea,
   FormField,
   Heading,
   Text,
@@ -28,12 +29,33 @@ import { BestTimesList } from "../components/BestTimesList";
 import type { Selection, AvailabilitySlot } from "@when/shared";
 
 export const Route = createFileRoute("/p/$planId")({
-  component: ParticipantPage,
+  component: PlanPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: (search.token as string) || undefined,
+  }),
 });
 
-function ParticipantPage() {
+function PlanPage() {
   const { planId } = Route.useParams();
+  const { token: urlToken } = Route.useSearch();
   const queryClient = useQueryClient();
+
+  // Resolve admin token from URL param or plan store
+  const [adminToken, setAdminToken] = useState<string | null>(() => {
+    const entry = getEntry(planId);
+    return urlToken || entry?.adminToken || null;
+  });
+
+  // If token came via URL, persist it to the plan store
+  useEffect(() => {
+    if (urlToken) {
+      const entry = getEntry(planId);
+      trackPlanCreated(planId, entry?.title || "Untitled", urlToken);
+      setAdminToken(urlToken);
+    }
+  }, [planId, urlToken]);
+
+  const isAdmin = !!adminToken;
 
   const { data: results, isLoading } = useQuery({
     queryKey: ["results", planId],
@@ -41,6 +63,14 @@ function ParticipantPage() {
     refetchInterval: 15_000,
   });
 
+  // Store title in plan store once loaded (for drawer display)
+  useEffect(() => {
+    if (results?.plan.title && adminToken) {
+      trackPlanCreated(planId, results.plan.title, adminToken);
+    }
+  }, [results?.plan.title, planId, adminToken]);
+
+  // Edit token / existing response
   const [editToken, setEditToken] = useState<string | null>(null);
   const [existingResponseId, setExistingResponseId] = useState<string | null>(null);
 
@@ -52,6 +82,7 @@ function ParticipantPage() {
     }
   }, [planId]);
 
+  // Response form state
   const [name, setName] = useState("");
   const [selections, setSelections] = useState<Record<string, "yes" | "maybe" | null>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -64,6 +95,14 @@ function ParticipantPage() {
   >([]);
   const [viewingDate, setViewingDate] = useState<string | null>(null);
 
+  // Admin edit state
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [copiedAdmin, setCopiedAdmin] = useState(false);
+
+  // Load existing response data
   useEffect(() => {
     if (results && existingResponseId) {
       const existing = results.responses.find((r) => r.id === existingResponseId);
@@ -82,6 +121,50 @@ function ParticipantPage() {
     }
   }, [results, existingResponseId]);
 
+  // Admin mutations
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      api.updatePlan(
+        planId,
+        { title: editTitle, description: editDescription || undefined },
+        adminToken!,
+      ),
+    onSuccess: () => {
+      setEditing(false);
+      queryClient.invalidateQueries({ queryKey: ["results", planId] });
+    },
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: () => api.closePlan(planId, adminToken!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["results", planId] });
+    },
+  });
+
+  const startEditing = () => {
+    if (results) {
+      setEditTitle(results.plan.title);
+      setEditDescription(results.plan.description || "");
+      setEditing(true);
+    }
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/p/${planId}`);
+    setCopiedShare(true);
+    setTimeout(() => setCopiedShare(false), 2000);
+  };
+
+  const copyAdminLink = () => {
+    navigator.clipboard.writeText(
+      `${window.location.origin}/p/${planId}?token=${adminToken}`,
+    );
+    setCopiedAdmin(true);
+    setTimeout(() => setCopiedAdmin(false), 2000);
+  };
+
+  // Availability helpers
   const handleAvailDateClick = (date: string) => {
     const existing = availSlots
       .filter((s) => s.date === date)
@@ -108,6 +191,7 @@ function ParticipantPage() {
 
   const availSelectedDates = [...new Set(availSlots.map((s) => s.date))];
 
+  // Submit response mutation
   const submitMutation = useMutation({
     mutationFn: async () => {
       if (results?.plan.mode === "availability") {
@@ -199,23 +283,91 @@ function ParticipantPage() {
 
   return (
     <VStack gap={5}>
+      {/* Header */}
       <Box>
-        <HStack gap={2} align="center" mb={1}>
-          <Heading as="h2" size="xl">
-            {plan.title}
-          </Heading>
-          {plan.status === "closed" && <Badge colorScheme="error">Closed</Badge>}
-        </HStack>
-        {plan.description && (
-          <Text color="foreground-muted" mb={2}>
-            {plan.description}
-          </Text>
+        {editing ? (
+          <VStack gap={3}>
+            <FormField label="Title">
+              <Input
+                value={editTitle}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditTitle(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Description">
+              <Textarea
+                value={editDescription}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setEditDescription(e.target.value)
+                }
+                rows={2}
+              />
+            </FormField>
+            <HStack gap={2}>
+              <Button
+                size="sm"
+                onClick={() => updateMutation.mutate()}
+                loading={updateMutation.isPending}
+              >
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </HStack>
+          </VStack>
+        ) : (
+          <Box>
+            <HStack gap={2} align="center" mb={1}>
+              <Heading as="h2" size="xl">
+                {plan.title}
+              </Heading>
+              {plan.status === "closed" && <Badge colorScheme="error">Closed</Badge>}
+            </HStack>
+            {plan.description && (
+              <Text color="foreground-muted" mb={2}>
+                {plan.description}
+              </Text>
+            )}
+            <Text size="xs" color="foreground-muted">
+              Times shown in {plan.timezone}
+            </Text>
+          </Box>
         )}
-        <Text size="xs" color="foreground-muted">
-          Times shown in {plan.timezone}
-        </Text>
       </Box>
 
+      {/* Admin controls */}
+      {isAdmin && !editing && (
+        <Box w="100%" p={3} bg="surface" rounded="md">
+          <HStack gap={2} wrap={true}>
+            <Button size="sm" variant="outline" onClick={copyShareLink}>
+              {copiedShare ? "Copied!" : "Copy share link"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={copyAdminLink}>
+              {copiedAdmin ? "Copied!" : "Copy admin link"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={startEditing}>
+              Edit details
+            </Button>
+            {plan.status === "open" && (
+              <Button
+                size="sm"
+                variant="outline"
+                colorScheme="error"
+                onClick={() => {
+                  if (confirm("Close this plan? Participants won't be able to respond.")) {
+                    closeMutation.mutate();
+                  }
+                }}
+                loading={closeMutation.isPending}
+              >
+                Close plan
+              </Button>
+            )}
+          </HStack>
+        </Box>
+      )}
+
+      {/* Results + response form */}
       {plan.mode === "availability" ? (
         <>
           {/* Best times */}
@@ -365,7 +517,7 @@ function ParticipantPage() {
           {plan.status === "open" && (
             <Box w="100%" p={4} border="thin" borderColor="border" rounded="md">
               <Heading as="h3" size="lg" mb={3}>
-                {existingResponseId ? "Update your response" : "Add your availability"}
+                {existingResponseId ? "Update your response" : "Add your response"}
               </Heading>
 
               <VStack gap={3}>

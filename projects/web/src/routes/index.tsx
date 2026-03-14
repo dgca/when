@@ -159,7 +159,7 @@ function CreatePlanPage() {
       trackPlanCreated(result.id, title, result.adminToken);
 
       navigate({
-        to: "/a/$planId",
+        to: "/p/$planId",
         params: { planId: result.id },
         search: { token: result.adminToken },
       });
