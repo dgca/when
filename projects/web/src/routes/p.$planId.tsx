@@ -274,6 +274,8 @@ function ParticipantPage() {
                   <DateCalendar
                     selectedDates={availSelectedDates}
                     onClickDate={handleAvailDateClick}
+                    minDate={plan.dateRangeStart || undefined}
+                    maxDate={plan.dateRangeEnd || undefined}
                   />
                 </Box>
 

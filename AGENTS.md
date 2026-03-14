@@ -16,7 +16,7 @@ Monorepo with pnpm workspaces:
 
 - **Language**: TypeScript (strict)
 - **Package manager**: pnpm
-- **Server**: Hono + Drizzle ORM + better-sqlite3
+- **Server**: Hono + Drizzle ORM + libsql (Turso)
 - **Client**: Vite + React 18 + TanStack Router (file-based) + TanStack Query + Tosui
 - **Validation**: Zod (shared between client/server)
 - **IDs**: nanoid (12 chars)
@@ -62,6 +62,15 @@ pnpm test           # run tests
 - Server routes in `projects/server/src/routes/`
 - Shared schemas in `projects/shared/src/schemas.ts`
 - DB schema in `projects/server/src/db/schema.ts`
+
+## Deployment
+
+- **Hosting**: Railway (auto-deploys on push to `main`)
+- **Database**: Turso (hosted libSQL) — `when-dgca.aws-us-west-2.turso.io`
+- **Domain**: https://when.typeof.cool
+- **Env vars** (set in Railway): `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+- In production, the server serves the built Vite SPA as static files with SPA fallback
+- Local dev uses `file:` SQLite via libsql's local driver
 
 ## After making changes
 
