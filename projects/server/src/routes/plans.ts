@@ -87,6 +87,7 @@ planRoutes.get("/:planId", async (c) => {
     mode: plan.mode,
     dateRangeStart: plan.dateRangeStart,
     dateRangeEnd: plan.dateRangeEnd,
+    chosenOptionId: plan.chosenOptionId,
     status: plan.status,
     options: planOptions.map((o) => ({
       id: o.id,
@@ -137,9 +138,12 @@ planRoutes.post("/:planId/close", async (c) => {
   if (!plan) return c.json({ error: "Plan not found" }, 404);
   if (plan.adminToken !== token) return c.json({ error: "Unauthorized" }, 401);
 
+  const body = await c.req.json().catch(() => ({}));
+  const chosenOptionId = body.chosenOptionId || null;
+
   await db
     .update(plans)
-    .set({ status: "closed", updatedAt: new Date().toISOString() })
+    .set({ status: "closed", chosenOptionId, updatedAt: new Date().toISOString() })
     .where(eq(plans.id, planId));
 
   return c.json({ ok: true });

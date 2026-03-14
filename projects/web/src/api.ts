@@ -42,9 +42,10 @@ export const api = {
     });
   },
 
-  closePlan(planId: string, adminToken: string): Promise<{ ok: true }> {
+  closePlan(planId: string, adminToken: string, chosenOptionId?: string): Promise<{ ok: true }> {
     return request(`/plans/${planId}/close`, {
       method: "POST",
+      body: JSON.stringify({ chosenOptionId }),
       headers: { "x-admin-token": adminToken },
     });
   },

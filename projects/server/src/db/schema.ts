@@ -10,6 +10,7 @@ export const plans = sqliteTable("plans", {
   mode: text("mode", { enum: ["poll", "availability"] }).notNull().default("poll"),
   dateRangeStart: text("date_range_start"),
   dateRangeEnd: text("date_range_end"),
+  chosenOptionId: text("chosen_option_id"),
   status: text("status", { enum: ["open", "closed"] }).notNull().default("open"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

@@ -31,6 +31,7 @@ await client.executeMultiple(`
     mode TEXT NOT NULL DEFAULT 'poll',
     date_range_start TEXT,
     date_range_end TEXT,
+    chosen_option_id TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -73,8 +74,13 @@ await client.executeMultiple(`
 `);
 
 // Migrations
-try {
-  await client.execute(`ALTER TABLE plans ADD COLUMN creator_name TEXT NOT NULL DEFAULT 'n/a'`);
-} catch {
-  // Column already exists
+for (const sql of [
+  `ALTER TABLE plans ADD COLUMN creator_name TEXT NOT NULL DEFAULT 'n/a'`,
+  `ALTER TABLE plans ADD COLUMN chosen_option_id TEXT`,
+]) {
+  try {
+    await client.execute(sql);
+  } catch {
+    // Column already exists
+  }
 }
