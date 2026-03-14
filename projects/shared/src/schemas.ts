@@ -71,6 +71,7 @@ export const availabilitySlotSchema = z
 const createPollPlanSchema = z.object({
   mode: z.literal("poll"),
   title: z.string().min(1, "Title is required").max(200),
+  creatorName: z.string().min(1, "Your name is required").max(100),
   description: z.string().max(2000).optional(),
   timezone: z.string().min(1, "Timezone is required"),
   options: z.array(optionSchema).min(1, "At least one option is required"),
@@ -79,6 +80,7 @@ const createPollPlanSchema = z.object({
 const createAvailabilityPlanSchema = z.object({
   mode: z.literal("availability"),
   title: z.string().min(1, "Title is required").max(200),
+  creatorName: z.string().min(1, "Your name is required").max(100),
   description: z.string().max(2000).optional(),
   timezone: z.string().min(1, "Timezone is required"),
   dateRangeStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
