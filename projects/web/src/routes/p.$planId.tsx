@@ -545,27 +545,38 @@ function PlanPage() {
                     {plan.options.map((opt) => {
                       const sel = selections[opt.id];
                       return (
-                        <Button
+                        <HStack
                           key={opt.id}
-                          variant={sel === "yes" ? "solid" : sel === "maybe" ? "outline" : "ghost"}
-                          colorScheme={
-                            sel === "yes" ? "success" : sel === "maybe" ? "warning" : undefined
-                          }
-                          fullWidth
-                          onClick={() => toggleSelection(opt.id)}
+                          as="button"
                           type="button"
+                          gap={2}
+                          w="100%"
+                          justify="space-between"
+                          align="center"
+                          p={3}
+                          rounded="md"
+                          onClick={() => toggleSelection(opt.id)}
+                          style={{
+                            cursor: "pointer",
+                            border: sel === "maybe"
+                              ? "1px solid var(--colors-warning, #f59e0b)"
+                              : "1px solid var(--colors-border, #e2e8f0)",
+                            background: sel === "yes"
+                              ? "var(--colors-success-subtle, #dcfce7)"
+                              : sel === "maybe"
+                                ? "var(--colors-warning-subtle, #fef9c3)"
+                                : "transparent",
+                          }}
                         >
-                          <HStack gap={2} w="100%" justify="space-between">
-                            <Text size="sm">{opt.label}</Text>
-                            <Badge
-                              colorScheme={
-                                sel === "yes" ? "success" : sel === "maybe" ? "warning" : "gray"
-                              }
-                            >
-                              {sel === "yes" ? "Yes" : sel === "maybe" ? "Maybe" : "—"}
-                            </Badge>
-                          </HStack>
-                        </Button>
+                          <Text size="sm">{opt.label}</Text>
+                          <Badge
+                            colorScheme={
+                              sel === "yes" ? "success" : sel === "maybe" ? "warning" : "gray"
+                            }
+                          >
+                            {sel === "yes" ? "Yes" : sel === "maybe" ? "Maybe" : "—"}
+                          </Badge>
+                        </HStack>
                       );
                     })}
                   </VStack>
