@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import React from "react";
+import { trackPlanJoined } from "../planStore";
 import {
   Box,
   Button,
@@ -167,6 +168,9 @@ function ParticipantPage() {
     },
     onSuccess: () => {
       setSubmitted(true);
+      if (results?.plan.title) {
+        trackPlanJoined(planId, results.plan.title);
+      }
       queryClient.invalidateQueries({ queryKey: ["results", planId] });
     },
   });
