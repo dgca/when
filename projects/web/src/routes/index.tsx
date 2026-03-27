@@ -184,8 +184,7 @@ function CreatePlanPage() {
         Create a plan
       </Heading>
       <Text color="foreground-muted" mb={6}>
-        Find a time that works for everyone. Create a plan, share the link, and let your group vote
-        on times — no sign-up required.
+        Create a plan, share the link, and let your group vote on times — no sign-up required.
       </Text>
       <form onSubmit={handleSubmit}>
         <VStack gap={4}>
