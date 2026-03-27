@@ -180,9 +180,13 @@ function CreatePlanPage() {
 
   return (
     <Box>
-      <Heading as="h2" size="xl" mb={4}>
+      <Heading as="h2" size="xl" mb={2}>
         Create a plan
       </Heading>
+      <Text color="foreground-muted" mb={6}>
+        Find a time that works for everyone. Create a plan, share the link, and let your group vote
+        on times — no sign-up required.
+      </Text>
       <form onSubmit={handleSubmit}>
         <VStack gap={4}>
           <HStack gap={2} mb={2}>
@@ -201,6 +205,11 @@ function CreatePlanPage() {
               Availability
             </Button>
           </HStack>
+          <Text size="sm" color="foreground-muted">
+            {mode === "poll"
+              ? "You pick specific time slots. Participants vote on which ones work."
+              : "Participants share when they're free. You find the overlap."}
+          </Text>
 
           <FormField label="Title">
             <Input

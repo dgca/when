@@ -9,3 +9,4 @@ dist/
 .DS_Store
 projects/server/data/
 .playwright-cli/
+*.tsbuildinfo
