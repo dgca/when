@@ -338,20 +338,18 @@ function CreatePlanPage() {
                 {includesTimes
                   ? "Select dates, then pick time slots"
                   : rangeStart
-                    ? `Click another date to complete the range (started: ${formatDateNice(rangeStart)})`
+                    ? <>Started: {formatDateNice(rangeStart)} — click another date to complete the range, or{" "}
+                        <Text
+                          as="span"
+                          color="error"
+                          style={{ cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => setRangeStart(null)}
+                        >
+                          cancel
+                        </Text>
+                      </>
                     : "Click a date to add it, or click two dates for a range"}
               </Text>
-              {rangeStart && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setRangeStart(null)}
-                  type="button"
-                  mb={2}
-                >
-                  Cancel range
-                </Button>
-              )}
               <DateCalendar selectedDates={selectedDates} dateRanges={calendarDateRanges} onClickDate={handleDateClick} />
             </Box>
           ) : (
