@@ -16,7 +16,6 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  Switch,
 } from "@tosui/react";
 import type { CreatePlanResponse } from "@when/shared";
 import { api } from "../api";
@@ -320,12 +319,24 @@ function CreatePlanPage() {
           </Box>
 
           {mode === "poll" && (
-            <Switch
-              isChecked={includesTimes}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleToggleIncludesTimes(e.target.checked)}
-              label="Include specific times"
-              size="sm"
-            />
+            <HStack gap={2}>
+              <Button
+                variant={!includesTimes ? "solid" : "outline"}
+                size="sm"
+                onClick={() => handleToggleIncludesTimes(false)}
+                type="button"
+              >
+                Dates only
+              </Button>
+              <Button
+                variant={includesTimes ? "solid" : "outline"}
+                size="sm"
+                onClick={() => handleToggleIncludesTimes(true)}
+                type="button"
+              >
+                Dates & times
+              </Button>
+            </HStack>
           )}
 
           {mode === "poll" ? (
