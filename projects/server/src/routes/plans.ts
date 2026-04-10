@@ -17,6 +17,7 @@ planRoutes.post("/", async (c) => {
   }
 
   const { title, creatorName, description, timezone, mode } = parsed.data;
+  const timeGranularity = parsed.data.mode === "poll" ? parsed.data.timeGranularity : "datetime";
   const planId = nanoid(12);
   const adminToken = crypto.randomBytes(32).toString("hex");
   const now = new Date().toISOString();
@@ -29,6 +30,7 @@ planRoutes.post("/", async (c) => {
     description: description || null,
     timezone,
     mode,
+    timeGranularity,
     dateRangeStart: parsed.data.mode === "availability" ? (parsed.data.dateRangeStart || null) : null,
     dateRangeEnd: parsed.data.mode === "availability" ? (parsed.data.dateRangeEnd || null) : null,
     status: "open",
@@ -85,6 +87,7 @@ planRoutes.get("/:planId", async (c) => {
     description: plan.description,
     timezone: plan.timezone,
     mode: plan.mode,
+    timeGranularity: plan.timeGranularity,
     dateRangeStart: plan.dateRangeStart,
     dateRangeEnd: plan.dateRangeEnd,
     chosenOptionId: plan.chosenOptionId,

@@ -338,9 +338,11 @@ function PlanPage() {
                 Created by {plan.creatorName}
               </Text>
             )}
-            <Text size="xs" color="foreground-muted">
-              Times shown in {plan.timezone}
-            </Text>
+            {plan.timeGranularity !== "day" && (
+              <Text size="xs" color="foreground-muted">
+                Times shown in {plan.timezone}
+              </Text>
+            )}
           </Box>
         )}
       </Box>
@@ -381,7 +383,7 @@ function PlanPage() {
         return chosenOpt ? (
           <Box w="100%" p={4} bg="success-subtle" rounded="md">
             <Text size="xs" weight="semibold" color="success" mb={1}>
-              Final time
+              {plan.timeGranularity === "day" ? "Final date" : "Final time"}
             </Text>
             <Text size="lg" weight="bold">
               {chosenOpt.label}
@@ -555,7 +557,9 @@ function PlanPage() {
 
                 <Box w="100%">
                   <Text weight="semibold" mb={2}>
-                    Which times work? (click to cycle: yes / maybe / blank)
+                    {plan.timeGranularity === "day"
+                      ? "Which dates work? (click to cycle: yes / maybe / blank)"
+                      : "Which times work? (click to cycle: yes / maybe / blank)"}
                   </Text>
                   <VStack gap={2}>
                     {plan.options.map((opt) => {

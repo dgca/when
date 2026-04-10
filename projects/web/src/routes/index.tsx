@@ -34,6 +34,16 @@ interface TimeOption {
   endMinute: number;
 }
 
+interface DayOption {
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD (same as startDate for single days)
+}
+
+function formatDayOption(opt: DayOption): string {
+  if (opt.startDate === opt.endDate) return formatDateNice(opt.startDate);
+  return `${formatDateNice(opt.startDate)} – ${formatDateNice(opt.endDate)}`;
+}
+
 function formatTime12(hour: number, minute: number): string {
   const h = hour % 12 || 12;
   const ampm = hour < 12 ? "AM" : "PM";
@@ -56,6 +66,9 @@ function CreatePlanPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"poll" | "availability">("poll");
+  const [includesTimes, setIncludesTimes] = useState(true);
+  const [dayOptions, setDayOptions] = useState<DayOption[]>([]);
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
 
@@ -65,8 +78,34 @@ function CreatePlanPage() {
     Array<{ startHour: number; startMinute: number; endHour: number; endMinute: number }>
   >([]);
 
+  const handleToggleIncludesTimes = (checked: boolean) => {
+    setIncludesTimes(checked);
+    if (!checked) {
+      setOptions([]);
+    } else {
+      setDayOptions([]);
+      setRangeStart(null);
+    }
+  };
+
   const handleDateClick = (date: string) => {
-    // Load existing ranges for this date
+    if (!includesTimes) {
+      if (rangeStart === null) {
+        // First click: set range start
+        setRangeStart(date);
+      } else {
+        // Second click: complete the range (or single day if same date)
+        const [start, end] = rangeStart <= date ? [rangeStart, date] : [date, rangeStart];
+        setDayOptions((prev) => {
+          const isDuplicate = prev.some((o) => o.startDate === start && o.endDate === end);
+          if (isDuplicate) return prev;
+          return [...prev, { startDate: start, endDate: end }];
+        });
+        setRangeStart(null);
+      }
+      return;
+    }
+    // Datetime: open time picker modal
     const existing = options
       .filter((o) => o.date === date)
       .map((o) => ({
@@ -81,7 +120,6 @@ function CreatePlanPage() {
 
   const handleSaveDay = () => {
     if (!selectedDate) return;
-    // Remove old options for this date, add new ones
     const otherOptions = options.filter((o) => o.date !== selectedDate);
     const newOptions = tempRanges.map((r) => ({
       date: selectedDate,
@@ -101,8 +139,19 @@ function CreatePlanPage() {
     setOptions(options.filter((_, i) => i !== index));
   };
 
+  const removeDayOption = (index: number) => {
+    setDayOptions((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Get unique dates that have options selected
-  const selectedDates = [...new Set(options.map((o) => o.date))];
+  const selectedDates = includesTimes
+    ? [...new Set(options.map((o) => o.date))]
+    : rangeStart ? [rangeStart] : [];
+
+  // For day-only mode, build range data for the calendar to render multi-day spans
+  const calendarDateRanges = !includesTimes
+    ? dayOptions.map((o) => ({ start: o.startDate, end: o.endDate }))
+    : undefined;
 
   // Sort options by date then time
   const sortedOptions = [...options].sort((a, b) => {
@@ -124,9 +173,15 @@ function CreatePlanPage() {
       return;
     }
 
-    if (mode === "poll" && options.length === 0) {
-      setError("Add at least one time option");
-      return;
+    if (mode === "poll") {
+      if (includesTimes && options.length === 0) {
+        setError("Add at least one time option");
+        return;
+      }
+      if (!includesTimes && dayOptions.length === 0) {
+        setError("Add at least one date");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -135,23 +190,45 @@ function CreatePlanPage() {
       let result: CreatePlanResponse;
 
       if (mode === "poll") {
-        const planOptions = sortedOptions.map((opt) => {
-          const startDate = `${opt.date}T${String(opt.startHour).padStart(2, "0")}:${String(opt.startMinute).padStart(2, "0")}:00`;
-          const endDate = `${opt.date}T${String(opt.endHour).padStart(2, "0")}:${String(opt.endMinute).padStart(2, "0")}:00`;
-          const startsAt = new Date(startDate).toISOString();
-          const endsAt = new Date(endDate).toISOString();
-          const label = `${formatDateNice(opt.date)} ${formatTime12(opt.startHour, opt.startMinute)}–${formatTime12(opt.endHour, opt.endMinute)}`;
-          return { label, startsAt, endsAt };
-        });
-
-        result = await api.createPlan({
-          mode: "poll",
-          title,
-          creatorName,
-          description: description || undefined,
-          timezone,
-          options: planOptions,
-        });
+        if (includesTimes) {
+          const planOptions = sortedOptions.map((opt) => {
+            const startDate = `${opt.date}T${String(opt.startHour).padStart(2, "0")}:${String(opt.startMinute).padStart(2, "0")}:00`;
+            const endDate = `${opt.date}T${String(opt.endHour).padStart(2, "0")}:${String(opt.endMinute).padStart(2, "0")}:00`;
+            const startsAt = new Date(startDate).toISOString();
+            const endsAt = new Date(endDate).toISOString();
+            const label = `${formatDateNice(opt.date)} ${formatTime12(opt.startHour, opt.startMinute)}–${formatTime12(opt.endHour, opt.endMinute)}`;
+            return { label, startsAt, endsAt };
+          });
+          result = await api.createPlan({
+            mode: "poll",
+            title,
+            creatorName,
+            description: description || undefined,
+            timezone,
+            timeGranularity: "datetime",
+            options: planOptions,
+          });
+        } else {
+          const sortedDayOptions = [...dayOptions].sort((a, b) =>
+            a.startDate.localeCompare(b.startDate),
+          );
+          const planOptions = sortedDayOptions.map((opt) => ({
+            label: formatDayOption(opt),
+            startsAt: `${opt.startDate}T00:00:00.000Z`,
+            ...(opt.startDate !== opt.endDate
+              ? { endsAt: `${opt.endDate}T00:00:00.000Z` }
+              : {}),
+          }));
+          result = await api.createPlan({
+            mode: "poll",
+            title,
+            creatorName,
+            description: description || undefined,
+            timezone,
+            timeGranularity: "day",
+            options: planOptions,
+          });
+        }
       } else {
         result = await api.createPlan({
           mode: "availability",
@@ -245,12 +322,46 @@ function CreatePlanPage() {
             </Text>
           </Box>
 
+          {mode === "poll" && (
+            <HStack gap={2}>
+              <Button
+                variant={includesTimes ? "solid" : "outline"}
+                size="sm"
+                onClick={() => handleToggleIncludesTimes(true)}
+                type="button"
+              >
+                Dates & times
+              </Button>
+              <Button
+                variant={!includesTimes ? "solid" : "outline"}
+                size="sm"
+                onClick={() => handleToggleIncludesTimes(false)}
+                type="button"
+              >
+                Dates only
+              </Button>
+            </HStack>
+          )}
+
           {mode === "poll" ? (
             <Box w="100%">
               <Text weight="semibold" mb={2}>
-                Select dates, then pick time slots
+                {includesTimes
+                  ? "Select dates, then pick time slots"
+                  : rangeStart
+                    ? <>Started: {formatDateNice(rangeStart)} — click another date to complete the range, or{" "}
+                        <Text
+                          as="span"
+                          color="error"
+                          style={{ cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => setRangeStart(null)}
+                        >
+                          cancel
+                        </Text>
+                      </>
+                    : "Click a date to add it, or click two dates for a range"}
               </Text>
-              <DateCalendar selectedDates={selectedDates} onClickDate={handleDateClick} />
+              <DateCalendar selectedDates={selectedDates} dateRanges={calendarDateRanges} onClickDate={handleDateClick} />
             </Box>
           ) : (
             <Box w="100%">
@@ -281,7 +392,7 @@ function CreatePlanPage() {
           )}
 
           {/* Selected options summary */}
-          {mode === "poll" && sortedOptions.length > 0 && (
+          {mode === "poll" && includesTimes && sortedOptions.length > 0 && (
             <Box w="100%">
               <Text weight="semibold" size="sm" mb={2}>
                 Time options ({sortedOptions.length})
@@ -310,6 +421,34 @@ function CreatePlanPage() {
             </Box>
           )}
 
+          {mode === "poll" && !includesTimes && dayOptions.length > 0 && (
+            <Box w="100%">
+              <Text weight="semibold" size="sm" mb={2}>
+                Date options ({dayOptions.length})
+              </Text>
+              <VStack gap={1}>
+                {[...dayOptions]
+                  .map((opt, i) => ({ opt, i }))
+                  .sort((a, b) => a.opt.startDate.localeCompare(b.opt.startDate))
+                  .map(({ opt, i }) => (
+                    <HStack key={i} gap={2} align="center">
+                      <Badge colorScheme="success" size="sm">
+                        {formatDayOption(opt)}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDayOption(i)}
+                        type="button"
+                      >
+                        ✕
+                      </Button>
+                    </HStack>
+                  ))}
+              </VStack>
+            </Box>
+          )}
+
           {error && (
             <Text color="error" size="sm">
               {error}
@@ -323,7 +462,7 @@ function CreatePlanPage() {
       </form>
 
       {/* Day time picker modal */}
-      {mode === "poll" && (
+      {mode === "poll" && includesTimes && (
         <Modal
           isOpen={selectedDate !== null}
           onClose={() => setSelectedDate(null)}
