@@ -96,7 +96,11 @@ function CreatePlanPage() {
       } else {
         // Second click: complete the range (or single day if same date)
         const [start, end] = rangeStart <= date ? [rangeStart, date] : [date, rangeStart];
-        setDayOptions((prev) => [...prev, { startDate: start, endDate: end }]);
+        setDayOptions((prev) => {
+          const isDuplicate = prev.some((o) => o.startDate === start && o.endDate === end);
+          if (isDuplicate) return prev;
+          return [...prev, { startDate: start, endDate: end }];
+        });
         setRangeStart(null);
       }
       return;
