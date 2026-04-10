@@ -321,20 +321,20 @@ function CreatePlanPage() {
           {mode === "poll" && (
             <HStack gap={2}>
               <Button
-                variant={!includesTimes ? "solid" : "outline"}
-                size="sm"
-                onClick={() => handleToggleIncludesTimes(false)}
-                type="button"
-              >
-                Dates only
-              </Button>
-              <Button
                 variant={includesTimes ? "solid" : "outline"}
                 size="sm"
                 onClick={() => handleToggleIncludesTimes(true)}
                 type="button"
               >
                 Dates & times
+              </Button>
+              <Button
+                variant={!includesTimes ? "solid" : "outline"}
+                size="sm"
+                onClick={() => handleToggleIncludesTimes(false)}
+                type="button"
+              >
+                Dates only
               </Button>
             </HStack>
           )}
