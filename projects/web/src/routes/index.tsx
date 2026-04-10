@@ -44,21 +44,6 @@ function formatDayOption(opt: DayOption): string {
   return `${formatDateNice(opt.startDate)} – ${formatDateNice(opt.endDate)}`;
 }
 
-function getDatesInRange(start: string, end: string): string[] {
-  const dates: string[] = [];
-  const [sy, sm, sd] = start.split("-").map(Number);
-  const [ey, em, ed] = end.split("-").map(Number);
-  const current = new Date(sy, sm - 1, sd);
-  const endDate = new Date(ey, em - 1, ed);
-  while (current <= endDate) {
-    dates.push(
-      `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`,
-    );
-    current.setDate(current.getDate() + 1);
-  }
-  return dates;
-}
-
 function formatTime12(hour: number, minute: number): string {
   const h = hour % 12 || 12;
   const ampm = hour < 12 ? "AM" : "PM";
@@ -154,15 +139,15 @@ function CreatePlanPage() {
     setDayOptions((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Get unique dates that have options selected (datetime mode) or covered by day ranges
+  // Get unique dates that have options selected
   const selectedDates = includesTimes
     ? [...new Set(options.map((o) => o.date))]
-    : [
-        ...new Set([
-          ...dayOptions.flatMap((o) => getDatesInRange(o.startDate, o.endDate)),
-          ...(rangeStart ? [rangeStart] : []),
-        ]),
-      ].sort();
+    : rangeStart ? [rangeStart] : [];
+
+  // For day-only mode, build range data for the calendar to render multi-day spans
+  const calendarDateRanges = !includesTimes
+    ? dayOptions.map((o) => ({ start: o.startDate, end: o.endDate }))
+    : undefined;
 
   // Sort options by date then time
   const sortedOptions = [...options].sort((a, b) => {
@@ -367,7 +352,7 @@ function CreatePlanPage() {
                   Cancel range
                 </Button>
               )}
-              <DateCalendar selectedDates={selectedDates} onClickDate={handleDateClick} />
+              <DateCalendar selectedDates={selectedDates} dateRanges={calendarDateRanges} onClickDate={handleDateClick} />
             </Box>
           ) : (
             <Box w="100%">

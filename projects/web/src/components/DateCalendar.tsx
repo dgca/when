@@ -5,14 +5,20 @@ import "@schedule-x/theme-default/dist/index.css";
 import "temporal-polyfill/global";
 import { useState, useEffect, useRef } from "react";
 
+interface DateRange {
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
+}
+
 interface DateCalendarProps {
-  selectedDates: string[]; // YYYY-MM-DD[]
+  selectedDates: string[]; // YYYY-MM-DD[] — rendered as individual day markers
+  dateRanges?: DateRange[]; // when provided, rendered as spanning multi-day events
   onClickDate: (date: string) => void;
   minDate?: string; // YYYY-MM-DD
   maxDate?: string; // YYYY-MM-DD
 }
 
-export function DateCalendar({ selectedDates, onClickDate, minDate, maxDate }: DateCalendarProps) {
+export function DateCalendar({ selectedDates, dateRanges, onClickDate, minDate, maxDate }: DateCalendarProps) {
   const [eventsService] = useState(() => createEventsServicePlugin());
   const containerRef = useRef<HTMLDivElement>(null);
   const minDateRef = useRef(minDate);
@@ -52,18 +58,66 @@ export function DateCalendar({ selectedDates, onClickDate, minDate, maxDate }: D
     },
   });
 
-  // Sync selected dates into the calendar events service
+  // Sync selected dates/ranges into the calendar events service
   useEffect(() => {
-    eventsService.set(
-      selectedDates.map((date, i) => ({
-        id: String(i),
-        title: "✓",
-        start: Temporal.PlainDate.from(date),
-        end: Temporal.PlainDate.from(date),
-        calendarId: "selected",
-      })),
-    );
-  }, [selectedDates, eventsService]);
+    const events: Array<{
+      id: string;
+      title: string;
+      start: Temporal.PlainDate;
+      end: Temporal.PlainDate;
+      calendarId: string;
+    }> = [];
+
+    if (dateRanges) {
+      // Render multi-day ranges as spanning events
+      dateRanges.forEach((range, i) => {
+        events.push({
+          id: `range-${i}`,
+          title: range.start === range.end ? "✓" : "⇿",
+          start: Temporal.PlainDate.from(range.start),
+          end: Temporal.PlainDate.from(range.end),
+          calendarId: "selected",
+        });
+      });
+      // Also render any selectedDates not covered by ranges (e.g. pending range start)
+      const coveredDates = new Set(
+        dateRanges.flatMap((r) => {
+          const dates: string[] = [];
+          let current = Temporal.PlainDate.from(r.start);
+          const end = Temporal.PlainDate.from(r.end);
+          while (Temporal.PlainDate.compare(current, end) <= 0) {
+            dates.push(current.toString());
+            current = current.add({ days: 1 });
+          }
+          return dates;
+        }),
+      );
+      selectedDates
+        .filter((d) => !coveredDates.has(d))
+        .forEach((date, i) => {
+          events.push({
+            id: `single-${i}`,
+            title: "→",
+            start: Temporal.PlainDate.from(date),
+            end: Temporal.PlainDate.from(date),
+            calendarId: "selected",
+          });
+        });
+    } else {
+      // Flat date list — original behavior
+      selectedDates.forEach((date, i) => {
+        events.push({
+          id: String(i),
+          title: "✓",
+          start: Temporal.PlainDate.from(date),
+          end: Temporal.PlainDate.from(date),
+          calendarId: "selected",
+        });
+      });
+    }
+
+    eventsService.set(events);
+  }, [selectedDates, dateRanges, eventsService]);
 
   // Gray out dates outside the allowed range
   useEffect(() => {
