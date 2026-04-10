@@ -47,9 +47,11 @@ export const updateResponseSchema = z.object({
 
 export const planStatusSchema = z.enum(["open", "closed"]);
 
-// --- Availability mode schemas ---
+// --- Plan mode and granularity schemas ---
 
 export const planModeSchema = z.enum(["poll", "availability"]);
+
+export const timeGranularitySchema = z.enum(["day", "datetime"]);
 
 export const availabilitySlotSchema = z
   .object({
@@ -74,6 +76,7 @@ const createPollPlanSchema = z.object({
   creatorName: z.string().min(1, "Your name is required").max(100),
   description: z.string().max(2000).optional(),
   timezone: z.string().min(1, "Timezone is required"),
+  timeGranularity: timeGranularitySchema,
   options: z.array(optionSchema).min(1, "At least one option is required"),
 });
 

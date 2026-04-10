@@ -56,6 +56,8 @@ function CreatePlanPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"poll" | "availability">("poll");
+  const [includesTimes, setIncludesTimes] = useState(true);
+  const [dayOnlyDates, setDayOnlyDates] = useState<string[]>([]);
   const [dateRangeStart, setDateRangeStart] = useState("");
   const [dateRangeEnd, setDateRangeEnd] = useState("");
 
@@ -65,8 +67,22 @@ function CreatePlanPage() {
     Array<{ startHour: number; startMinute: number; endHour: number; endMinute: number }>
   >([]);
 
+  const handleToggleIncludesTimes = (checked: boolean) => {
+    setIncludesTimes(checked);
+    // Clear options from the other mode when switching
+    if (!checked) setOptions([]);
+    else setDayOnlyDates([]);
+  };
+
   const handleDateClick = (date: string) => {
-    // Load existing ranges for this date
+    if (!includesTimes) {
+      // Day-only: toggle date in/out
+      setDayOnlyDates((prev) =>
+        prev.includes(date) ? prev.filter((d) => d !== date) : [...prev, date],
+      );
+      return;
+    }
+    // Datetime: open time picker modal
     const existing = options
       .filter((o) => o.date === date)
       .map((o) => ({
@@ -81,7 +97,6 @@ function CreatePlanPage() {
 
   const handleSaveDay = () => {
     if (!selectedDate) return;
-    // Remove old options for this date, add new ones
     const otherOptions = options.filter((o) => o.date !== selectedDate);
     const newOptions = tempRanges.map((r) => ({
       date: selectedDate,
@@ -101,8 +116,14 @@ function CreatePlanPage() {
     setOptions(options.filter((_, i) => i !== index));
   };
 
-  // Get unique dates that have options selected
-  const selectedDates = [...new Set(options.map((o) => o.date))];
+  const removeDayOnlyDate = (date: string) => {
+    setDayOnlyDates((prev) => prev.filter((d) => d !== date));
+  };
+
+  // Get unique dates that have options selected (datetime mode)
+  const selectedDates = includesTimes
+    ? [...new Set(options.map((o) => o.date))]
+    : [...dayOnlyDates].sort();
 
   // Sort options by date then time
   const sortedOptions = [...options].sort((a, b) => {
@@ -124,9 +145,15 @@ function CreatePlanPage() {
       return;
     }
 
-    if (mode === "poll" && options.length === 0) {
-      setError("Add at least one time option");
-      return;
+    if (mode === "poll") {
+      if (includesTimes && options.length === 0) {
+        setError("Add at least one time option");
+        return;
+      }
+      if (!includesTimes && dayOnlyDates.length === 0) {
+        setError("Add at least one date");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -135,23 +162,39 @@ function CreatePlanPage() {
       let result: CreatePlanResponse;
 
       if (mode === "poll") {
-        const planOptions = sortedOptions.map((opt) => {
-          const startDate = `${opt.date}T${String(opt.startHour).padStart(2, "0")}:${String(opt.startMinute).padStart(2, "0")}:00`;
-          const endDate = `${opt.date}T${String(opt.endHour).padStart(2, "0")}:${String(opt.endMinute).padStart(2, "0")}:00`;
-          const startsAt = new Date(startDate).toISOString();
-          const endsAt = new Date(endDate).toISOString();
-          const label = `${formatDateNice(opt.date)} ${formatTime12(opt.startHour, opt.startMinute)}–${formatTime12(opt.endHour, opt.endMinute)}`;
-          return { label, startsAt, endsAt };
-        });
-
-        result = await api.createPlan({
-          mode: "poll",
-          title,
-          creatorName,
-          description: description || undefined,
-          timezone,
-          options: planOptions,
-        });
+        if (includesTimes) {
+          const planOptions = sortedOptions.map((opt) => {
+            const startDate = `${opt.date}T${String(opt.startHour).padStart(2, "0")}:${String(opt.startMinute).padStart(2, "0")}:00`;
+            const endDate = `${opt.date}T${String(opt.endHour).padStart(2, "0")}:${String(opt.endMinute).padStart(2, "0")}:00`;
+            const startsAt = new Date(startDate).toISOString();
+            const endsAt = new Date(endDate).toISOString();
+            const label = `${formatDateNice(opt.date)} ${formatTime12(opt.startHour, opt.startMinute)}–${formatTime12(opt.endHour, opt.endMinute)}`;
+            return { label, startsAt, endsAt };
+          });
+          result = await api.createPlan({
+            mode: "poll",
+            title,
+            creatorName,
+            description: description || undefined,
+            timezone,
+            timeGranularity: "datetime",
+            options: planOptions,
+          });
+        } else {
+          const planOptions = [...dayOnlyDates].sort().map((date) => ({
+            label: formatDateNice(date),
+            startsAt: `${date}T00:00:00.000Z`,
+          }));
+          result = await api.createPlan({
+            mode: "poll",
+            title,
+            creatorName,
+            description: description || undefined,
+            timezone,
+            timeGranularity: "day",
+            options: planOptions,
+          });
+        }
       } else {
         result = await api.createPlan({
           mode: "availability",
@@ -245,10 +288,24 @@ function CreatePlanPage() {
             </Text>
           </Box>
 
+          {mode === "poll" && (
+            <HStack gap={2} align="center">
+              <input
+                type="checkbox"
+                id="includes-times"
+                checked={includesTimes}
+                onChange={(e) => handleToggleIncludesTimes(e.target.checked)}
+              />
+              <label htmlFor="includes-times" style={{ cursor: "pointer", fontSize: "14px" }}>
+                Include specific times
+              </label>
+            </HStack>
+          )}
+
           {mode === "poll" ? (
             <Box w="100%">
               <Text weight="semibold" mb={2}>
-                Select dates, then pick time slots
+                {includesTimes ? "Select dates, then pick time slots" : "Select dates"}
               </Text>
               <DateCalendar selectedDates={selectedDates} onClickDate={handleDateClick} />
             </Box>
@@ -281,7 +338,7 @@ function CreatePlanPage() {
           )}
 
           {/* Selected options summary */}
-          {mode === "poll" && sortedOptions.length > 0 && (
+          {mode === "poll" && includesTimes && sortedOptions.length > 0 && (
             <Box w="100%">
               <Text weight="semibold" size="sm" mb={2}>
                 Time options ({sortedOptions.length})
@@ -310,6 +367,31 @@ function CreatePlanPage() {
             </Box>
           )}
 
+          {mode === "poll" && !includesTimes && dayOnlyDates.length > 0 && (
+            <Box w="100%">
+              <Text weight="semibold" size="sm" mb={2}>
+                Selected dates ({dayOnlyDates.length})
+              </Text>
+              <VStack gap={1}>
+                {[...dayOnlyDates].sort().map((date) => (
+                  <HStack key={date} gap={2} align="center">
+                    <Badge colorScheme="success" size="sm">
+                      {formatDateNice(date)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeDayOnlyDate(date)}
+                      type="button"
+                    >
+                      ✕
+                    </Button>
+                  </HStack>
+                ))}
+              </VStack>
+            </Box>
+          )}
+
           {error && (
             <Text color="error" size="sm">
               {error}
@@ -323,7 +405,7 @@ function CreatePlanPage() {
       </form>
 
       {/* Day time picker modal */}
-      {mode === "poll" && (
+      {mode === "poll" && includesTimes && (
         <Modal
           isOpen={selectedDate !== null}
           onClose={() => setSelectedDate(null)}

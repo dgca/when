@@ -8,6 +8,7 @@ export const plans = sqliteTable("plans", {
   description: text("description"),
   timezone: text("timezone").notNull(),
   mode: text("mode", { enum: ["poll", "availability"] }).notNull().default("poll"),
+  timeGranularity: text("time_granularity", { enum: ["day", "datetime"] }).notNull().default("datetime"),
   dateRangeStart: text("date_range_start"),
   dateRangeEnd: text("date_range_end"),
   chosenOptionId: text("chosen_option_id"),

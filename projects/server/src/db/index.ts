@@ -77,6 +77,7 @@ await client.executeMultiple(`
 for (const sql of [
   `ALTER TABLE plans ADD COLUMN creator_name TEXT NOT NULL DEFAULT 'n/a'`,
   `ALTER TABLE plans ADD COLUMN chosen_option_id TEXT`,
+  `ALTER TABLE plans ADD COLUMN time_granularity TEXT NOT NULL DEFAULT 'datetime'`,
 ]) {
   try {
     await client.execute(sql);

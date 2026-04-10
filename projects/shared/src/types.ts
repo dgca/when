@@ -12,6 +12,7 @@ import type {
   createAvailabilityResponseSchema,
   updateAvailabilityResponseSchema,
   planModeSchema,
+  timeGranularitySchema,
 } from "./schemas.js";
 
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
@@ -23,6 +24,7 @@ export type SelectionValue = z.infer<typeof selectionValueSchema>;
 export type PlanStatus = z.infer<typeof planStatusSchema>;
 export type Selection = z.infer<typeof selectionSchema>;
 export type PlanMode = z.infer<typeof planModeSchema>;
+export type TimeGranularity = z.infer<typeof timeGranularitySchema>;
 export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
 export type CreateAvailabilityResponseInput = z.infer<typeof createAvailabilityResponseSchema>;
 export type UpdateAvailabilityResponseInput = z.infer<typeof updateAvailabilityResponseSchema>;
@@ -35,6 +37,7 @@ export interface PlanSummary {
   timezone: string;
   status: PlanStatus;
   mode: PlanMode;
+  timeGranularity?: TimeGranularity;
   dateRangeStart?: string | null;
   dateRangeEnd?: string | null;
   chosenOptionId?: string | null;
